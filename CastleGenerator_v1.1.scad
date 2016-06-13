@@ -12,7 +12,7 @@
 // preview[view:south, tilt:side]
 
 // Master switch for details (windows, decorations...) - keep it off while you calibrate
-generate_details = "No"; // [Yes, No]
+generate_details = "Yes"; // [Yes, No]
 // Castle variations - change it for a completely different result
 random_seed = 60; // [1:1:400]
 // Would you like an island, Sir?
@@ -113,6 +113,7 @@ overlap = 0.01; // used to make sure union/difference give nice results
 roof_flat_extend_ratio = 0.5; // [0.1:0.1:1] // Flat roofs - how wide?
 pointed_roof_cone_base_ratio = 0.04; // ratio between inverted base cone of roof, and the cone of roof
 roof_deco_spacing_height = 0.25*floor_height; // distance between ring decorations on the roofs
+edge_margin_factor = 0.1;
 
 max_roof_types = 4;
 
@@ -380,17 +381,16 @@ module roof_flat ( w, h, sides ) {
             circle(d=w,$fn=sides);
             
             // cut archers slots
-            //if (gen_roof_decorations)
-            translate([0,0,0.6*roof_top_part_height])
+            translate([0,0,0.5*roof_top_part_height])
             pattern_around_polygon (roof_top_width, roof_top_part_height, sides, 
+                                0,
                                element_max_width=floor_height, 
                                element_height=roof_top_part_height, 
-                               shape_type=1, shape_width_factor=0.4, 
-                               shape_height_factor=1.3, extrude_length=5,
-                               distribution_ratio=1 );
-
+                               extrude_length=5,
+                               distribution_ratio=1 )
+                square([0.4,1], center=true);
         }
-        
+
         
         
         // base part with corbels
@@ -401,11 +401,12 @@ module roof_flat ( w, h, sides ) {
             if (gen_corbel_decoration)
             translate([0,0,-0.1*roof_bottom_part_height])
             pattern_around_polygon (roof_top_width, roof_bottom_part_height, sides, 
-                               element_max_width=0.7*floor_height, element_height=roof_bottom_part_height, 
-                               shape_type=2, shape_width_factor=0.6, 
-                                shape_height_factor=1, extrude_length=roof_overhang,
-                                distribution_ratio=1 );
-
+                                    0,
+                                    element_max_width=0.7*floor_height, 
+                                    element_height=roof_bottom_part_height, 
+                                    extrude_length=roof_overhang,
+                                    distribution_ratio=1 )
+                                    special_rectangle(0.6,1);
         }
     }
 }
@@ -454,13 +455,15 @@ module roof_pointed ( w, h, sides ) {
                 intersection() {
                     pattern_around_polygon ( roof_cone_base_width,
                                     cube_height, sides, 
+                                    0,//edge_margin=edge_margin_factor*w,
                                    element_max_width=floor_height, 
                                    element_height=cube_height, 
-                                   shape_type=2, 
-                                   shape_width_factor=0.5, 
-                                   shape_height_factor=1, 
+                                   //shape_type=2, 
+                                   //shape_width_factor=0.5, 
+                                   //shape_height_factor=1, 
                                    extrude_length=0.2*roof_cone_base_width,
-                                   distribution_ratio=1 );
+                                   distribution_ratio=1 )
+                    special_rectangle(0.6,0.6);
                     
                     translate([0,0,-overlap])
                     linear_extrude(cube_height*2)
@@ -554,8 +557,11 @@ module turret_body ( w, h, sides ) {
         // _____Generate windows______
         color([0.3,0.3,0.3])
         if (gen_windows) 
-            pattern_around_polygon (w, h, sides, window_width_base, floor_height, 
-                                2, 0.5, 0.7, 1.5, window_coverage );
+            pattern_around_polygon (w, h, sides, edge_margin_factor*w,          
+                                    window_width_base, 
+                                    floor_height, 1.5, 
+                                    window_coverage )
+                special_rectangle(0.6,0.6);
 
         
         // _____Generate brick pattern______
@@ -658,6 +664,8 @@ module special_rectangle (w, h) {
     
     offs = sqrt(2*pow(w/2,2));
 
+    rotate([180,0,0])
+    translate([0,-h/2,0])
     hull() {
         translate([0,offs/2,0])
         rotate([0,0,45])
@@ -717,13 +725,18 @@ module generate_island ( w, h, iseed ) {
 /**************************************************************
    module for distributing elements along floors, sides and per each facet
 ***************************************************************/
-module pattern_around_polygon (w, h, sides, element_max_width, element_height, 
-                                shape_type, shape_width_factor, shape_height_factor, extrude_length,
-                                distribution_ratio) {
-    // shape_type 1 = rectangle 
-    // shape_type 2 = rectangle with sharp tip
+module pattern_around_polygon (w, h, sides, edge_margin,
+            element_max_width, element_height, 
+                                extrude_length, distribution_ratio) {
+// module given a child geometry to spread along sides of polygon (existing or not)
+// size of 2D element given should be 1X1 to completely fill the grid, or smaller for partial.
 
-    vertical_n = floor(h/element_height); // how many rows of elements
+ /*   vertical_n = floor(h/element_height); // how many rows of elements
+    element_height2 = h/vertical_n;*/
+    h2 = h-edge_margin;
+
+    vertical_n = floor(h2/element_height); // how many rows of elements
+    element_height2 = h2/vertical_n;
 
     // treat circular as (diameter/element_width) sided
     circular_n = (sides > 12)? floor(w*3.1415/(element_max_width)): sides; 
@@ -732,12 +745,16 @@ module pattern_around_polygon (w, h, sides, element_max_width, element_height,
     element_width = (ww<element_max_width)?ww:element_max_width; // limit window width
 
     // for circular only one element per facet
+    side_length = w*sin(180/sides)-edge_margin;
     elements_per_facet = (sides <= 12) ?
-                floor (  w*sin(180/sides) / element_width ) : 1;
+                floor ( side_length / element_width ) : 1;
+    
+    element_width2 = (sides <= 12) ?
+                side_length / elements_per_facet : element_width;
     
     inradius = w * cos( 180 / sides ); // inradius of the polygon shape
     
-    delta_per_facet = 0.5*(elements_per_facet-1) * element_width;
+    delta_per_facet = 0.5*(elements_per_facet-1) * element_width2;
     
     rotate([0,0,correction_angle(sides)])
     for (a=[1:1:vertical_n]) // per each floor
@@ -745,35 +762,19 @@ module pattern_around_polygon (w, h, sides, element_max_width, element_height,
         for (c=[0:1:elements_per_facet-1]) // per each facet with multiple windows
         if (rands(0,1,1)[0] <= distribution_ratio)
         rotate([0,0,b*360/circular_n])
-        translate([-delta_per_facet + c*element_width,0,0])
-        translate([0,inradius/2,(a-0.5)*(h/vertical_n)]) {
+        translate([-delta_per_facet + c*element_width2,0,0])
+        translate([0,inradius/2,(a-0.5)*(h2/vertical_n) + edge_margin/2]) {
             union() {
                 rotate([90,0,0]) {
-                    // **** Generate elements
-                    w_width = element_width*shape_width_factor;
-                    w_height = element_height*shape_height_factor;
-                    
-                    if (shape_type == 1) {
-                        // simple rectangle
-                        rotate([0,0,180])
-                        linear_extrude(extrude_length,center=true)
-                        square([w_width,w_height],center=true);
-                    }
-                    else if (shape_type == 2) {
-                        // standard window shape
-                        f = 1.2; // scale to make tip less than 45deg
-                        translate([0,(w_height/2)/f,0]) rotate([0,0,180])
-                        linear_extrude(extrude_length,center=true)
-                        scale([1,f,1])
-                        special_rectangle(w_width,w_height/f);
-                    }
-                    // **** 
+                    linear_extrude(extrude_length,center=true)
+                    scale([element_width2, element_height2])
+                    children(0);
                 }
             }
         }
     }
-
 }
+
 
 // And they lived happily ever after...
 

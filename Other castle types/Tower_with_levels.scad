@@ -1,18 +1,13 @@
 /*----------------------------------------------------------------------------*/
-/*  Fantastic Castle Generator v1                                             */
-/*  Created by Ziv Botzer                                                     */
-/*  zivbot@gmail.com                                                          */
-/*  License: Creative Commons - Attribution - Non-Commercial                  */
-
-/*  9.6.2016 bug fixed: partial generation didn't include height of island    */
-/*  7.6.2016                                                                  */
+/* first attempt at a different type of castle: a tower with multiple levels  */
+/* WORK IN PROGRESS */
 
 /*----------------------------------------------------------------------------*/
 
 // preview[view:south, tilt:side]
 
 // Master switch for details (windows, decorations...) - keep it off while you calibrate
-generate_details = "No"; // [Yes, No]
+generate_details = "Yes"; // [Yes, No]
 // Castle variations - change it for a completely different result
 random_seed = 60; // [1:1:400]
 // Would you like an island, Sir?
@@ -20,7 +15,7 @@ island = "Yes"; // [Yes, No]
 // No. of turrets attached to each turret
 children = 2;  // [0:1:5]
 // Generations (recursions) !!Exponential complexity!!
-max_recursion = 2;  // [0:1:5]
+max_recursion = 3;  // [0:1:5]
 // Symmetry for first level !Double complexity!
 first_level_symmetry = "No"; // [Yes, No] 
 // Symmetry for all other levels !Double complexity!
@@ -30,7 +25,7 @@ roof_pointed_ratio = 1.8; // [0.4:0.2:4]
 
 /* [Main structure ] */
 // How many sides/facets for main building 
-building_number_of_sides = 0; // [4,6,8,12,60,0:Random]
+building_number_of_sides = 4; // [4,6,8,12,60,0:Random]
 // Height (without roof) (0 = Random)
 building_height = 0;  // [0:1:100]
 // Width  (0 = Random)
@@ -79,11 +74,11 @@ generate_bricks = "No"; // [Yes, No]
 
 /* [Decorations: Windows] */
 // How many windows to scatter (1 = everywhere)
-window_coverage = 0.3; // [0.1:0.1:1]
+window_coverage = 0.1; // [0.1:0.1:1]
 // Height of each floor (affects windows and roofs, as well as minimal turret width)
 floor_height = 5; // [1:0.5:20]
-// Width of windows
-window_width_base = 2.5; // [1:0.5:10]
+// Width of windows (default 2.5)
+window_width_base = 2; // [1:0.5:10]
 
 /* [Decorations: Bricks] */
 // Height of the bricks
@@ -113,6 +108,7 @@ overlap = 0.01; // used to make sure union/difference give nice results
 roof_flat_extend_ratio = 0.5; // [0.1:0.1:1] // Flat roofs - how wide?
 pointed_roof_cone_base_ratio = 0.04; // ratio between inverted base cone of roof, and the cone of roof
 roof_deco_spacing_height = 0.25*floor_height; // distance between ring decorations on the roofs
+edge_margin_factor = 0.1;
 
 max_roof_types = 4;
 
@@ -128,7 +124,7 @@ gen_roofs = ((what_to_generate == 1) || (what_to_generate == 4));
 gen_island = (island == "Yes") && ((what_to_generate==1) || (what_to_generate == 2));
 
 // uncomment to make every rebuild really random:
-//random_seed = floor(rands(0,1000,1)[0]); 
+random_seed = floor(rands(0,1000,1)[0]); 
 echo(random_seed);
 
 
@@ -136,15 +132,128 @@ echo(random_seed);
 
 //********************** MAIN *****************************
 
-union() {
     //**** ISLAND *****
-    if (gen_island)
-        generate_island(island_width, island_height, island_random_seed+random_seed);
+generate_island(island_width, island_height, island_random_seed+random_seed);
 
     //**** CASTLE *****
-    translate([0,0,((gen_island)?overlap:0) ])
-        generate_castle(random_seed);
+*translate([0,0,((gen_island)?overlap:0) ])
+   generate_castle(random_seed);
+
+
+s = 6;
+wall_offset = 80;
+wall_thickness = 15;
+area = 45;
+minw = 60;
+maxw = 100;
+minh = 80;
+maxh = 150;
+
+// central tower
+t = random_tower_parameters(minw, maxw, minh, maxh, s, random_seed);
+turret_levels ( t[0], t[1], 4, 0.7, false,  t[2], 1, 3 ) {
+    turret_round ( 0.1*t[0], 0.2*t[1], true, t[2], 1, 3);
+    turret_round ( 0.2*t[0], 0.3*t[1], true, t[2], 1, 2);
 }
+
+//module turret_round ( w, h, generate_bottom, sides, roof_ratio, roof_type_ )
+
+
+module turret_levels ( w, h, levels, level_w_factor, generate_bottom, sides, roof_ratio, roof_type ) {
+
+    body_height = h;
+    level_height = h/levels;
+    //roof_height = w*roof_ratio;
+    roof_height = w*roof_ratio*pow(level_w_factor,levels-1);
+    roof_width = w*pow(level_w_factor,levels-1);
+    base_height = w*2;
+
+            
+    rotate([0,0,correction_angle(sides)])
+    union() {
+        
+        // roof
+        //translate([0,0,body_height-overlap])
+           //turret_roof (roof_width, roof_height, sides, roof_type);
+       
+        // body of turret
+        if(gen_structure)
+        for (i=[1:levels])
+        translate([0,0,level_height*(i-1)]) {
+            level_width = w*pow(level_w_factor,i);
+            turret_body(level_width, level_height, sides);
+            translate([0,0,level_height])
+            if (i<levels)
+                turret_roof (level_width, floor_height, sides, 2);
+            else
+                turret_roof (level_width, roof_height, sides, roof_type);
+            
+            // distribute children
+            for (c = [0:1:$children-1]) {
+                inradius = level_width * cos( 180 / sides );
+                r1 = rands(0,360,1,random_seed+c+i*10)[0];
+                v1 = inradius*1/2;
+                
+                rotate([0,0, r1 ] )
+                translate([0,v1, v1 ])
+                children(c);
+            }
+        }
+
+        // under part
+        if(gen_structure)
+        translate([0,0,overlap])
+        if (generate_bottom) {
+            color("Gainsboro")
+             turret_base(w, base_height, sides);
+        }
+        
+    }
+}
+
+
+
+
+module position_along_corners ( w, sides ) {
+    s = (sides <= 8)?sides:8;
+    
+    for (i = [0:s-1]) {
+        rotate([0,0,i*(360/s) + 360/s/2 ])
+        translate([0,w/2,0])
+        children(0);
+    }    
+}
+
+
+
+module position_tower ( spread_area, seed ) {
+    translate([rands(-spread_area,spread_area,1,seed)[0],
+                rands(-spread_area,spread_area,1,seed*2)[0], 0])
+        children(0);
+}
+
+function random_tower_parameters (minw, maxw, minh, maxh, s, seed) = 
+    [ rands(minw,maxw,1,seed)[0],
+        rands(minh,maxh,1,seed*2)[0],
+        decide_number_of_sides ( s, seed ) ];
+                                
+
+/**************************************************************
+   Helper functions
+***************************************************************/
+function decide_roof_type( t, rseed ) = (t==0)? floor(rands(0,max_roof_types-0.01,1,rseed)[0]+1) : t;
+
+function decide_number_of_sides ( s, rseed ) = (s==0) ? 
+        sides_predef[ floor( rands(0,len(sides_predef)-0.01,1,rseed)[0] ) ] : s;
+
+// the correction angle makes sure all polygons (no matter how many sides) align on one side
+function correction_angle ( sides ) = (sides==4)?45: (sides==5)?18: (sides==8)?22.5: (sides==12)?15:0;
+
+function decide_dimension ( dim, minimum, random_min, random_max, rseed ) =
+     (dim == 0)? round(rands(random_min, random_max, 1, rseed)[0]) : (
+     (dim >= minimum )? dim : minimum );
+
+
 
 
 /**************************************************************
@@ -189,47 +298,34 @@ module generate_castle(rseed) {
         
         rotate([0,0, r1 ] )
          translate([0,v1, 0 ])
-         turret_recursive(1,max_recursion, towers_width_, towers_height_, true, rseed+i*10 );
+         turret_recursive(1,max_recursion, towers_width_, towers_height_, true, turrets_number_of_sides, rseed+i*10 );
         
         if (first_level_symmetry=="Yes") {
             rotate([0,0, 360-r1 ] )
              translate([0,v1, 0 ])
-             turret_recursive(1,max_recursion, towers_width_, towers_height_, true, rseed+i*14 );
+             turret_recursive(1,max_recursion, towers_width_, towers_height_, true, turrets_number_of_sides, rseed+i*14 );
         }
     }
 
 }
 
-/**************************************************************
-   Helper functions
-***************************************************************/
-function decide_roof_type( t, rseed ) = (t==0)? floor(rands(0,max_roof_types-0.01,1,rseed)[0]+1) : t;
-
-function decide_number_of_sides ( s, rseed ) = (s==0) ? 
-        sides_predef[ floor( rands(0,len(sides_predef)-0.01,1,rseed)[0] ) ] : s;
-
-// the correction angle makes sure all polygons (no matter how many sides) align on one side
-function correction_angle ( sides ) = (sides==4)?45: (sides==5)?18: (sides==8)?22.5: (sides==12)?15:0;
-
-function decide_dimension ( dim, minimum, random_min, random_max, rseed ) =
-     (dim == 0)? round(rands(random_min, random_max, 1, rseed)[0]) : (
-     (dim >= minimum )? dim : minimum );
 
 
 /**************************************************************
    Generate turrets with recursive children
 ***************************************************************/
-module turret_recursive ( current_depth, max_recursion, w, h, main_tower, rseed ) {
+module turret_recursive ( current_depth, max_recursion, w, h, main_tower, sides_, rseed ) {
     
     if (current_depth <= max_recursion)
     union() {
         
         // how many sides if this were a main tower
-        main_tower_number_of_sides = decide_number_of_sides (towers_number_of_sides, rseed+current_depth );
+        /*main_tower_number_of_sides = decide_number_of_sides (towers_number_of_sides, rseed+current_depth );
         
         // decide how many sides for this tower/turret
         sides = (main_tower)? main_tower_number_of_sides : 
-            decide_number_of_sides (turrets_number_of_sides, rseed+current_depth );
+            decide_number_of_sides (turrets_number_of_sides, rseed+current_depth );*/
+        sides = decide_number_of_sides (sides_, rseed+current_depth );
         
         // decide roof type
         main_tower_roof_type = decide_roof_type (towers_roof_type, rseed+current_depth);
@@ -256,12 +352,12 @@ module turret_recursive ( current_depth, max_recursion, w, h, main_tower, rseed 
             
             rotate([0,0, r1 ] )
             translate([0,v1, z_transform])
-            turret_recursive(current_depth+1, max_recursion, t_width, t_height, false, rseed*i );
+            turret_recursive(current_depth+1, max_recursion, t_width, t_height, false, sides_, rseed*i );
             
             if (next_levels_symmetry=="Yes") 
                 rotate([0,0, 360-r1 ] )
                 translate([0,v1, z_transform])
-                turret_recursive(current_depth+1, max_recursion, t_width, t_height, false, rseed*i+10 );
+                turret_recursive(current_depth+1, max_recursion, t_width, t_height, false, sides_, rseed*i+10 );
         }
     }
 }
@@ -277,7 +373,8 @@ module turret_round ( w, h, generate_bottom, sides, roof_ratio, roof_type_ ) {
     roof_height = w*roof_ratio;
     base_height = w*2;
    
-    rotate([0,0,(sides==4)?45:0])
+    //rotate([0,0,(sides==4)?45:0])
+    rotate([0,0,correction_angle(sides)])
     union() {
         
         // roof
@@ -380,17 +477,16 @@ module roof_flat ( w, h, sides ) {
             circle(d=w,$fn=sides);
             
             // cut archers slots
-            //if (gen_roof_decorations)
-            translate([0,0,0.6*roof_top_part_height])
+            translate([0,0,0.5*roof_top_part_height])
             pattern_around_polygon (roof_top_width, roof_top_part_height, sides, 
+                                0, 0,
                                element_max_width=floor_height, 
                                element_height=roof_top_part_height, 
-                               shape_type=1, shape_width_factor=0.4, 
-                               shape_height_factor=1.3, extrude_length=5,
-                               distribution_ratio=1 );
-
+                               extrude_length=5,
+                               distribution_ratio=1 )
+                square([0.4,1], center=true);
         }
-        
+
         
         
         // base part with corbels
@@ -401,11 +497,12 @@ module roof_flat ( w, h, sides ) {
             if (gen_corbel_decoration)
             translate([0,0,-0.1*roof_bottom_part_height])
             pattern_around_polygon (roof_top_width, roof_bottom_part_height, sides, 
-                               element_max_width=0.7*floor_height, element_height=roof_bottom_part_height, 
-                               shape_type=2, shape_width_factor=0.6, 
-                                shape_height_factor=1, extrude_length=roof_overhang,
-                                distribution_ratio=1 );
-
+                                    2, 0,
+                                    element_max_width=0.7*floor_height, 
+                                    element_height=roof_bottom_part_height, 
+                                    extrude_length=roof_overhang,
+                                    distribution_ratio=1 )
+                                    special_rectangle(0.6,1);
         }
     }
 }
@@ -439,7 +536,8 @@ module roof_pointed ( w, h, sides ) {
         color("OrangeRed")
         linear_extrude(roof_inverted_cone_height, scale=roof_cone_base_width/w)
           circle(d = w, $fn=sides); 
-        
+
+
 
         // generate decos
        color("OrangeRed") 
@@ -447,26 +545,24 @@ module roof_pointed ( w, h, sides ) {
 
             translate([0,0,roof_inverted_cone_height]) {
                 
+
                 // small roofs around base of roof
-                cube_height = 0.1*roof_cone_height;
-                cube_position_ratio = 0.05;
                 translate([0,0,overlap])
                 intersection() {
-                    pattern_around_polygon ( roof_cone_base_width,
-                                    cube_height, sides, 
-                                   element_max_width=floor_height, 
-                                   element_height=cube_height, 
-                                   shape_type=2, 
-                                   shape_width_factor=0.5, 
-                                   shape_height_factor=1, 
-                                   extrude_length=0.2*roof_cone_base_width,
-                                   distribution_ratio=1 );
-                    
+                    pattern_around_polygon ( 0.95*roof_cone_base_width,
+                                    window_width_base, sides, 
+                                    0.05*roof_cone_base_width,
+                                    0, // vertical margin
+                                    element_max_width=window_width_base, 
+                                   element_height=window_width_base, 
+                                   extrude_length=0.5*roof_cone_base_width,
+                                   distribution_ratio=1 )
+                        special_rectangle(0.8,1);
+
                     translate([0,0,-overlap])
-                    linear_extrude(cube_height*2)
+                    linear_extrude(window_width_base*2)
                     circle(d=roof_cone_base_width-overlap, $fn=sides);
                 }
-                
                
                 // round horz rails along roof
                 rail_spacing = 2*roof_deco_spacing_height;
@@ -554,8 +650,15 @@ module turret_body ( w, h, sides ) {
         // _____Generate windows______
         color([0.3,0.3,0.3])
         if (gen_windows) 
-            pattern_around_polygon (w, h, sides, window_width_base, floor_height, 
-                                2, 0.5, 0.7, 1.5, window_coverage );
+            pattern_around_polygon (w, h, sides, 
+                                    edge_margin_factor*w,
+                                    edge_margin_factor*h,
+                                    window_width_base,
+                                    floor_height,
+                                    1.5,
+                                    window_coverage )
+                scale([0.8,1/4,1])
+                special_rectangle(0.8,3);
 
         
         // _____Generate brick pattern______
@@ -612,8 +715,8 @@ module turret_base ( w, h, sides ) {
     circular_n = (sides <= 6)?sides:6;
     shortest_radius = w * cos( 180 / sides ) / 2; 
     
-    correct = (sides==4)?45:(sides==5)?18:(sides==8)?22.5:(sides==12)?15:0;
-
+    correct = correction_angle(sides);
+    
     color("Gainsboro")
     rotate([0,0,(sides==4)?-45:0]) // fix square alignment
     union () {
@@ -655,29 +758,30 @@ module turret_base ( w, h, sides ) {
 ***************************************************************/
 module special_rectangle (w, h) {
     // if h is too small its ignored
-    
+    // ^-- thats not good behaviour, leading to misalignment <<<<
     offs = sqrt(2*pow(w/2,2));
+    rotate([180,0,0])
+    translate([0,-h/2,0])
+    union() {
+        hull() {
+            translate([0,offs/2,0])
+            rotate([0,0,45])
+            square(w/2,center=true);
 
-    hull() {
-        translate([0,offs/2,0])
-        rotate([0,0,45])
-        square(w/2,center=true);
-
-        difference() {
-            translate([0,offs,0])
-            circle(d=w, $fn=20);
-            
-            // substract for half circle
-            translate([0,offs+w/2,0])
-            square([w*1.1,w],center=true);
+            difference() {
+                translate([0,offs,0])
+                circle(d=w, $fn=20);
+                
+                // substract for half circle
+                translate([0,offs+w/2,0])
+                square([w*1.1,w],center=true);
+            }
         }
-        
         if (h > offs)
-        translate([0,offs+(h-offs)/2,0])
-        square([w,h-offs],center=true);
+                translate([0,offs+(h-offs)/2,0])
+                square([w,h-offs],center=true);
     }
 }
-
 
 /**************************************************************
    Generate an island for anointed knights such as yourself
@@ -717,13 +821,19 @@ module generate_island ( w, h, iseed ) {
 /**************************************************************
    module for distributing elements along floors, sides and per each facet
 ***************************************************************/
-module pattern_around_polygon (w, h, sides, element_max_width, element_height, 
-                                shape_type, shape_width_factor, shape_height_factor, extrude_length,
-                                distribution_ratio) {
-    // shape_type 1 = rectangle 
-    // shape_type 2 = rectangle with sharp tip
+module pattern_around_polygon (w, h, sides, 
+            width_padding, height_padding,
+            element_max_width, element_height, 
+            extrude_length, distribution_ratio) {
+// module given a child geometry to spread along sides of polygon (existing or not)
+// size of 2D element given should be 1X1 to completely fill the grid, or smaller for partial.
 
-    vertical_n = floor(h/element_height); // how many rows of elements
+ /*   vertical_n = floor(h/element_height); // how many rows of elements
+    element_height2 = h/vertical_n;*/
+    h2 = h-height_padding;
+
+    vertical_n = floor(h2/element_height); // how many rows of elements
+    element_height2 = h2/vertical_n;
 
     // treat circular as (diameter/element_width) sided
     circular_n = (sides > 12)? floor(w*3.1415/(element_max_width)): sides; 
@@ -732,12 +842,16 @@ module pattern_around_polygon (w, h, sides, element_max_width, element_height,
     element_width = (ww<element_max_width)?ww:element_max_width; // limit window width
 
     // for circular only one element per facet
+    side_length = w*sin(180/sides)-width_padding;
     elements_per_facet = (sides <= 12) ?
-                floor (  w*sin(180/sides) / element_width ) : 1;
+                floor ( side_length / element_width ) : 1;
+    
+    element_width2 = (sides <= 12) ?
+                side_length / elements_per_facet : element_width;
     
     inradius = w * cos( 180 / sides ); // inradius of the polygon shape
     
-    delta_per_facet = 0.5*(elements_per_facet-1) * element_width;
+    delta_per_facet = 0.5*(elements_per_facet-1) * element_width2;
     
     rotate([0,0,correction_angle(sides)])
     for (a=[1:1:vertical_n]) // per each floor
@@ -745,35 +859,19 @@ module pattern_around_polygon (w, h, sides, element_max_width, element_height,
         for (c=[0:1:elements_per_facet-1]) // per each facet with multiple windows
         if (rands(0,1,1)[0] <= distribution_ratio)
         rotate([0,0,b*360/circular_n])
-        translate([-delta_per_facet + c*element_width,0,0])
-        translate([0,inradius/2,(a-0.5)*(h/vertical_n)]) {
+        translate([-delta_per_facet + c*element_width2,0,0])
+        translate([0,inradius/2,(a-0.5)*(h2/vertical_n) + height_padding/2]) {
             union() {
                 rotate([90,0,0]) {
-                    // **** Generate elements
-                    w_width = element_width*shape_width_factor;
-                    w_height = element_height*shape_height_factor;
-                    
-                    if (shape_type == 1) {
-                        // simple rectangle
-                        rotate([0,0,180])
-                        linear_extrude(extrude_length,center=true)
-                        square([w_width,w_height],center=true);
-                    }
-                    else if (shape_type == 2) {
-                        // standard window shape
-                        f = 1.2; // scale to make tip less than 45deg
-                        translate([0,(w_height/2)/f,0]) rotate([0,0,180])
-                        linear_extrude(extrude_length,center=true)
-                        scale([1,f,1])
-                        special_rectangle(w_width,w_height/f);
-                    }
-                    // **** 
+                    linear_extrude(extrude_length,center=true)
+                    scale([element_width2, element_height2])
+                    children(0);
                 }
             }
         }
     }
-
 }
+
 
 // And they lived happily ever after...
 
