@@ -1,7 +1,15 @@
 # Medieval Castle Generator
 3D print-ready medieval castle generator
 
-v1 uploaded to Thingiverse at http://www.thingiverse.com/thing:1612651
+Generators are active on Thingiverse:
+Castle Generator: recursive towers over a central building+towers
+http://www.thingiverse.com/thing:1612651
+
+Fortress Generator: perimiter wall with towers and one generation of turrets
+http://www.thingiverse.com/thing:1639567
+
+Grand Castle Generator: combination of perimiter wall + recursive towers + simple controls
+http://www.thingiverse.com/thing:1682427
 
 
 Ideas for future versions:
@@ -10,11 +18,6 @@ Ideas for future versions:
 - Add more themes, e.g. Taj Mahal, Winterfell
 - Add outer decorative elements still in the 45deg slope logic: bridges, arches, etc.
 - Holes for flags + seperate printing of flags
-
-Ideas implemented:
-- Wall with towers along it (e.g. Bastille) = Fortress Generator
-
-
 
 
 
