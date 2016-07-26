@@ -1,9 +1,8 @@
 # Medieval Castle Generator
 3D print-ready medieval castle generator
 
-**Generators are live on Thingiverse using the Customizer**
+### Generators are live on Thingiverse
 
-## Latest version:
 [Grand Castle Generator](http://www.thingiverse.com/thing:1682427)
 Combination of perimiter wall + recursive towers + simple controls
 
