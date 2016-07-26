@@ -140,18 +140,22 @@ generate_island(island_width, island_height, island_random_seed+random_seed);
    generate_castle(random_seed);
 
 
-s = 6;
+s = 0;
 wall_offset = 80;
 wall_thickness = 15;
 area = 45;
 minw = 60;
-maxw = 100;
+maxw = 60;
 minh = 80;
 maxh = 150;
 
 // central tower
 t = random_tower_parameters(minw, maxw, minh, maxh, s, random_seed);
-turret_levels ( t[0], t[1], 4, 0.7, false,  t[2], 1, 3 ) {
+/*turret_levels ( t[0], t[1], 4, 0.7, false,  t[2], 1, 3 ) {
+    turret_round ( 0.1*t[0], 0.2*t[1], true, t[2], 1, 3);
+    turret_round ( 0.2*t[0], 0.3*t[1], true, t[2], 1, 2);
+}*/
+turret_levels ( t[0], t[1], 3, 0.7, false,  s, 1, 3 ) {
     turret_round ( 0.1*t[0], 0.2*t[1], true, t[2], 1, 3);
     turret_round ( 0.2*t[0], 0.3*t[1], true, t[2], 1, 2);
 }
@@ -171,26 +175,54 @@ module turret_levels ( w, h, levels, level_w_factor, generate_bottom, sides, roo
             
     rotate([0,0,correction_angle(sides)])
     union() {
+
+        // First level
+        s1 = decide_number_of_sides(sides,random_seed);
         
-        // roof
-        //translate([0,0,body_height-overlap])
-           //turret_roof (roof_width, roof_height, sides, roof_type);
-       
-        // body of turret
+        turret_body(w, level_height, s1 );
+        // distribute children
+        for (c = [0:1:$children-1]) {
+            inradius = w * cos( 180 / s1 );
+            r1 = rands(0,360,1,random_seed+c)[0];
+            v1 = inradius*1/2;
+            
+            rotate([0,0, r1 ] )
+            translate([0,v1, v1 ])
+            children(c);
+        }
+        translate([0,0,level_height])
+        if (levels>1)
+            turret_roof (w, floor_height, s1, 2);
+        else
+            turret_roof (w, roof_height, s1, roof_type);
+        
+        // under part
         if(gen_structure)
-        for (i=[1:levels])
+        translate([0,0,overlap])
+        if (generate_bottom) {
+            color("Gainsboro")
+             turret_base(w, base_height, s1);
+        }
+        
+        
+        // Next levels
+        if (levels > 1)
+        for (i=[2:levels])
         translate([0,0,level_height*(i-1)]) {
-            level_width = w*pow(level_w_factor,i);
-            turret_body(level_width, level_height, sides);
+            s2 = decide_number_of_sides(sides,random_seed+i*100);
+            
+            level_width = w*pow(level_w_factor,i-1);
+            
+            turret_body(level_width, level_height, (i==1)?s1:s2 );
             translate([0,0,level_height])
             if (i<levels)
-                turret_roof (level_width, floor_height, sides, 2);
+                turret_roof (level_width, floor_height, s2, 2);
             else
-                turret_roof (level_width, roof_height, sides, roof_type);
+                turret_roof (level_width, roof_height, s2, roof_type);
             
             // distribute children
             for (c = [0:1:$children-1]) {
-                inradius = level_width * cos( 180 / sides );
+                inradius = level_width * cos( 180 / s1 );
                 r1 = rands(0,360,1,random_seed+c+i*10)[0];
                 v1 = inradius*1/2;
                 
@@ -200,13 +232,7 @@ module turret_levels ( w, h, levels, level_w_factor, generate_bottom, sides, roo
             }
         }
 
-        // under part
-        if(gen_structure)
-        translate([0,0,overlap])
-        if (generate_bottom) {
-            color("Gainsboro")
-             turret_base(w, base_height, sides);
-        }
+
         
     }
 }

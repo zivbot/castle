@@ -9,7 +9,7 @@
 
 /*----------------------------------------------------------------------------*/
 
-// preview[view:south, tilt:side]
+// preview[view:south east, tilt:top diagonal]
 
 // Master switch for details (windows, decorations...) - keep it off while you calibrate
 generate_details = "Yes"; // [Yes, No]
