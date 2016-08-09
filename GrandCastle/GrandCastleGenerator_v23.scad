@@ -1,10 +1,17 @@
 /*----------------------------------------------------------------------------*/
-/*  Grand Castle Generator                                                    */
-/*  Created by Ziv Botzer                                                     */
-/*  zivbot@gmail.com                                                          */
-/*  License: Creative Commons - Attribution - Non-Commercial - Share Alike    */
-/*                                                                            */
-/*  20.7.2016 First version on Thingiverse                                    */
+/*  Grand Castle Generator
+/*  http://www.thingiverse.com/thing:1682427
+/*
+/*  Created by Ziv Botzer
+/*  zivbot@gmail.com
+/*
+/*  Island generation code by Torleif 
+/*  http://www.thingiverse.com/Torleif/about
+/*
+/*  License: Creative Commons - Attribution - Non-Commercial - Share Alike
+/*
+/*  8.8.2016  V2.0 up, with island and bug fixes
+/*  20.7.2016 V1.0 on Thingiverse
 /*----------------------------------------------------------------------------*/
 
 // preview[view:south east, tilt:top diagonal]
@@ -34,14 +41,40 @@ dense = 8;  // [0:0.5:10]
 chaos = 8; // [0:0.5:10]
 
 // Island variations (0 = no island)
-island_random_seed = 20; // [0:1:400]
+island_random_seed = 60; // [0:1:400]
 
 
 /* [Hidden] */
 
 
-perimiter_sides = 6;
-//island_random_seed = 349;
+/********** PLAY AND TEST AREA ***********
+
+generate_details = "Off";
+perimiter_sides = 8;
+dense = 1;
+people_scale = 7;
+chaos = 7;
+island_random_seed = 0;
+tall_and_narrow = 5;
+
+structure_random_seed = 992; 
+detail_random_seed = 38; 
+island_random_seed = 45;
+
+
+// uncomment to make every rebuild really random:
+/*
+structure_random_seed = floor(rands(0,1000,1)[0]); 
+detail_random_seed = floor(rands(0,1000,1)[0]); 
+island_random_seed = floor(rands(1,1000,1)[0]);
+
+echo("structure_random_seed=",structure_random_seed);
+echo("detail_random_seed=",detail_random_seed);
+echo("island_random_seed=",island_random_seed);
+*/
+
+/*****************************************/
+
 
 //********************** CONSTANTS *****************************
 
@@ -77,15 +110,6 @@ gen_roofs = true;
 
 
 
-/*
-// uncomment to make every rebuild really random:
-structure_random_seed = floor(rands(0,1000,1)[0]); 
-echo("Random seed=",structure_random_seed);
-detail_random_seed = floor(rands(0,1000,1)[0]); 
-echo("detail_random_seed=",detail_random_seed);
-*/
-
-
 //********************** MAIN *****************************
 
 tallness = tall_and_narrow/10; // = 0...1
@@ -119,7 +143,14 @@ turrets_width_ratio = 0.1+(dense/10)*0.3;
 min_turret_width = 2*people_scale;
 max_turret_width = 25;
 
+gate_width = 2*people_scale;
+gate_height = 3*people_scale;
+    
+gate_tower_width = chaos(3*gate_width, 0.5*gate_width, 2*gate_width);
+gate_tower_height = chaos(1.4*gate_height, 0.1*gate_height, 0.5*gate_height);
 
+island_height = perimiter_height*rands(0.7,1.5,1, island_random_seed)[0];
+            
 /*
 // Place a 10x10cm square just for reference
 translate([0,0,-1])
@@ -127,9 +158,9 @@ translate([0,0,-1])
 */
 
 // Perimiter wall
+union() {
 difference() {
-    gate_width = 2*people_scale;
-    gate_height = 3*people_scale;
+    
 
     translate([0,0,-overlap])
     union() {
@@ -150,18 +181,15 @@ difference() {
         // gate tower
         translate([0,-inradius( perimiter_diameter, perimiter_sides ) /2 ])
         union() {
-            gate_tower_width = chaos(3*gate_width, 0.5*gate_width, 2*gate_width);
-            gate_tower_height = chaos(1.4*gate_height, 0.1*gate_height, 0.5*gate_height);
-        
             //translate([0,0,-overlap])
             turret_round ( gate_tower_width, gate_tower_height, false, 4, 1, 2 );
         
-            //translate([0,0,-overlap])
+            // Gate outer rim
             if (gen_structure)
             rotate([90,0,0])
             translate([0,gate_height/2,0])
             linear_extrude(inradius(gate_tower_width, 4)+2, center=true)
-            special_rectangle(gate_width+3, gate_height+3);
+            special_rectangle(gate_width+people_scale/2, gate_height+people_scale/2);
 
         }
         
@@ -198,31 +226,46 @@ difference() {
                                         
                 rotate([0,0,i*(360/max_number_of_towers) + 360/max_number_of_towers/2 ])
                 translate([0,center_offset,0])
-                rotate([0,0,perimiter_sides==4?45:0])
-                turret_recursive(1, number_recursion,
-                                number_of_turrets,
-                                current_tower_width, 
-                                current_tower_height, 
-                                true, 
-                                current_tower_sides,
-                                current_tower_roof,
-                                detail_random_seed+i*100 );
+                rotate([0,0,perimiter_sides==4?45:0]) {
+                    turret_recursive(1, number_recursion,
+                                    number_of_turrets,
+                                    current_tower_width, 
+                                    current_tower_height, 
+                                    true, 
+                                    current_tower_sides,
+                                    current_tower_roof,
+                                    detail_random_seed+i*100 );
+                    
+                    // add structure continuation below floor to prevent gaps
+                    if (island_random_seed != 0) {
+                        translate([0,0,-island_height+overlap])
+                        turret_round(current_tower_width, island_height,
+                                            false, current_tower_sides, 1, -1);
+                    }
+                }
                       
                 //color("Blue")
                 if (towers_symmetry)
                 if ((perimiter_sides!=5) || ((perimiter_sides==5) && (i < count_till)) )
                 rotate([0,0,-(i*(360/max_number_of_towers) + 360/max_number_of_towers/2) ])
                 translate([0,center_offset,0])
-                rotate([0,0,perimiter_sides==4?45:0])
-                turret_recursive(1, number_recursion,
-                                number_of_turrets,
-                                current_tower_width, 
-                                current_tower_height, 
-                                true, 
-                                current_tower_sides,
-                                current_tower_roof,
-                                detail_random_seed+i*100 );
-
+                rotate([0,0,perimiter_sides==4?45:0]) {
+                    turret_recursive(1, number_recursion,
+                                    number_of_turrets,
+                                    current_tower_width, 
+                                    current_tower_height, 
+                                    true, 
+                                    current_tower_sides,
+                                    current_tower_roof,
+                                    detail_random_seed+i*100 );
+                    
+                    // add structure continuation below floor to prevent gaps
+                    if (island_random_seed != 0) {
+                        translate([0,0,-island_height+overlap])
+                        turret_round(current_tower_width, island_height,
+                                            false, current_tower_sides, 1, -1);
+                    }
+                }
 
         }  
     }
@@ -238,9 +281,19 @@ difference() {
     special_rectangle(gate_width, gate_height);
     
     // trim everything below 0 Z
-    if (gen_structure)
+    if ((gen_structure) && (island_random_seed == 0))
     translate([0,0,-50])
     cube([500, 500, 100], center=true);
+} // difference
+
+    // ISLAND
+    if (island_random_seed != 0)
+        Island ( perimiter_diameter*rands(1,1.5,1, island_random_seed)[0]+max_turret_width*
+            rands(0.1,0.5,1, island_random_seed)[0], 
+        island_height,
+        rands(-5,5,1, island_random_seed)[0],
+        floor(rands(0,2,1, island_random_seed)[0]) ,perimiter_sides, island_random_seed,
+        gate_tower_width);
 }
 
 
@@ -461,12 +514,18 @@ module roof_flat ( w, h, sides ) {
             if (gen_corbel_decoration)
             translate([0,0,-0.1*roof_bottom_part_height])
             pattern_around_polygon (roof_top_width, roof_bottom_part_height, sides, 
-                                    2, 0,
+                                    people_scale, 0,
                                     element_max_width=0.7*people_scale, 
                                     element_height=roof_bottom_part_height, 
                                     extrude_length=roof_overhang,
                                     distribution_ratio=1 )
                                     special_rectangle(0.6,1);
+            
+            
+            /*pattern_around_polygon (w, h, sides, 
+            width_padding, height_padding,
+            element_max_width, element_height, 
+            extrude_length, distribution_ratio)*/
         }
     }
 }
@@ -743,7 +802,7 @@ module pattern_around_polygon (w, h, sides,
     for (a=[1:1:vertical_n]) // per each floor
     for (b=[0:1:circular_n]) {   // per each side
         for (c=[0:1:elements_per_facet-1]) // per each facet with multiple windows
-        if (rands(0,1,1)[0] <= distribution_ratio)
+        if (rands(0,1,1,detail_random_seed*a*b*c)[0] <= distribution_ratio)
         rotate([0,0,b*360/circular_n])
         translate([-delta_per_facet + c*element_width2,0,0])
         translate([0,inradius/2,(a-0.5)*(h2/vertical_n) + height_padding/2]) {
@@ -759,23 +818,10 @@ module pattern_around_polygon (w, h, sides,
 }
 
 
-// And they lived happily ever after...
 
 
 
-///Island ( Footprint diameter, Island height,Overbolder,Moat ,Footprint Sides);
-
-if (island_random_seed != 0)
-Island ( perimiter_diameter*rands(0.9,1.5,1, island_random_seed)[0]+max_turret_width*
-        rands(0.1,0.5,1, island_random_seed)[0], 
-    perimiter_height*rands(0.6,1.5,1, island_random_seed)[0],
-    rands(-5,5,1, island_random_seed)[0],
-    floor(rands(0,2,1, island_random_seed)[0]) ,perimiter_sides, island_random_seed);
-
-//island_random_seed = rands(1,1000,1)[0];
-island_random_seed = 7;
-
-module Island(r,h,over,moat,sides=4, rseed){
+module Island(r,h,over,moat,sides=4, rseed, gate_tower_width){
 
     intersection(){ 
 
@@ -785,16 +831,17 @@ module Island(r,h,over,moat,sides=4, rseed){
 
     difference(){ //Island minus cortyard and gate
 
+    color("Gray")
     union(){
         
 
         ps=correction_angle(perimiter_sides);
         // main cliff blocks
 
-        loops=5;
-        l=100;// num points
+        loops=3;
+        l=30;// num points
         n=16;// num faces
-        color("Gray")
+        
         for(loop=[0:loops]){
             
             z=rands(0,360,l+1,rseed+loop);
@@ -814,42 +861,42 @@ module Island(r,h,over,moat,sides=4, rseed){
 
         }
 
-            
-        // castle  and gate footprint
+        // castle and gate footprint
         union(){
-            midr=rands(0,360,1,rseed)[0];
+            midr=rands(-1,1,1,rseed)[0]*25;
             
-            color("DarkGreen")
+            //color("DarkGreen")
             hull(){
 
                 translate([0,0,-h*0.05]) 
                 rotate([0,0,ps])
                 linear_extrude(1, 0, convexity = 3) 
-                offset(r = max_turret_width/3)
+                offset(r = max_turret_width/8)
                     circle(r/2,$fn=sides);
 
                 // footprint
-                translate([0,0,-h*0.6])
+                translate([0,-5,-h*0.6])
                 rotate([0,0,midr])
                 linear_extrude(1, 0, convexity = 3) 
-                offset(r = 6)
+                offset(r = people_scale)
                   circle(r*0.65,$fn=sides); // footprint half way down
 
                 // gate tower footprint
                 translate([0,-inradius( perimiter_diameter, perimiter_sides ) /2 ])
                 union() {
-                    turret_round ( max_turret_width, 0, false, 4, 0, 0 );
-                   linear_extrude(1, 0, convexity = 3) offset(r = 4) {
-                  circle(4*people_scale,$fn=sides  );};
+                   turret_round ( gate_tower_width+people_scale*2, 1, false, 4, -1, -1 );
+                   linear_extrude(1, 0, convexity = 3) 
+                        offset(r = people_scale)
+                        square([gate_width+3,gate_tower_width], center=true);
                 }
             }
 
-            color("Green")
+            //color("Green")
             hull(){
-                translate([0,0,-h*0.6])
+                translate([0,-5,-h*0.6])
                 rotate([0,0,midr])
                 linear_extrude(1, 0, convexity = 3)
-                offset(r = 6)
+                offset(r = people_scale)
                 circle(r*0.65,$fn=sides  );
 
                 //translate([rands(-perimiter_diameter ,perimiter_diameter,1,rseed)[0],
@@ -857,7 +904,7 @@ module Island(r,h,over,moat,sides=4, rseed){
                 translate([0,0,-h*2])
                 rotate([0,0,rands(0,45,1,rseed)[0]])
                 linear_extrude(1, 0, convexity = 3) 
-                offset(r = 4)
+                offset(r = people_scale)
                 circle(r,$fn=sides /2);
                 
                 //translate([rands(-perimiter_diameter ,perimiter_diameter,1,rseed)[0],
@@ -874,7 +921,6 @@ module Island(r,h,over,moat,sides=4, rseed){
         }
     }
        
-
 
     //////////////////////shapes the top of the island to fit the castle
     // negative volume
@@ -918,4 +964,9 @@ module Island(r,h,over,moat,sides=4, rseed){
     }
     }
 }
+
+
+
+
+// And they lived happily ever after...
 
