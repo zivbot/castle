@@ -15,6 +15,11 @@ Recursive towers over a central building+towers
 Perimiter wall with towers and one generation of turrets
 
 
+<img
+  src="/images/Castle-Anim-Interface.gif"
+  alt="Screenshots from Thingiverse customizer"
+  title="Screenshots from Thingiverse customizer"
+  style="display: inline-block; margin: 0 auto; max-width: 300px">
 
 
 Ideas for future versions:
