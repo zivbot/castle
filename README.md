@@ -17,8 +17,7 @@ Perimiter wall with towers and one generation of turrets
 <img
   src="/sample-images/Castle-Anim-Interface.gif"
   alt="Screenshots from Thingiverse customizer"
-  title="Screenshots from Thingiverse customizer"
-  style="display: inline-block; margin: 0 auto; max-width: 300px">
+  title="Screenshots from Thingiverse customizer">
 
 Ideas for future versions:
 
