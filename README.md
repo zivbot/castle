@@ -14,7 +14,7 @@ Recursive towers over a central building+towers
 [Fortress Generator](http://www.thingiverse.com/thing:1639567)
 Perimiter wall with towers and one generation of turrets
 
-
+![Alt text](/images/Castle-Anim-Interface.gif "Screenshots from Thingiverse customizer")
 <img
   src="/images/Castle-Anim-Interface.gif"
   alt="Screenshots from Thingiverse customizer"
